@@ -6,26 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ApiKeyModal } from "@/components/api-key-modal"
-import {
-  Smartphone,
-  Activity,
-  MessageSquare,
-  Users,
-  Settings,
-  Plus,
-  QrCode,
-  CheckCircle,
-  AlertCircle,
-  Trash2,
-  CreditCard,
-} from "lucide-react"
+import { QRCodeDisplay } from "@/components/qr-code-display"
+import { Smartphone, Activity, MessageSquare, Users, Settings, Plus, Trash2, CreditCard } from "lucide-react"
 
 interface User {
   id: string
   name: string
   email: string
   plan: "free" | "paid"
+  selectedPlan: string
   trialEndsAt: string
+  projectType: "personal" | "business"
 }
 
 interface ApiKey {
@@ -37,7 +28,9 @@ interface ApiKey {
 }
 
 export default function DashboardPage() {
-  const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "connecting">("disconnected")
+  const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "connecting" | "error">(
+    "disconnected",
+  )
   const [user, setUser] = useState<User | null>(null)
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
@@ -65,7 +58,9 @@ export default function DashboardPage() {
         name: "Usuário Teste",
         email: "teste@zaphost.com",
         plan: "free",
+        selectedPlan: "free",
         trialEndsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+        projectType: "personal",
       })
     } catch (error) {
       console.error("Erro ao carregar dados do usuário:", error)
@@ -142,10 +137,24 @@ export default function DashboardPage() {
     }
   }
 
+  const handleUpgrade = () => {
+    window.location.href = "/plans"
+  }
+
   const isTrialExpired = user && user.plan === "free" && new Date() > new Date(user.trialEndsAt)
   const trialDaysLeft = user
     ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : 0
+
+  const getPlanName = (planId: string) => {
+    const plans: Record<string, string> = {
+      free: "Grátis",
+      weekly: "Semanal",
+      monthly: "Mensal",
+      quarterly: "Trimestral",
+    }
+    return plans[planId] || planId
+  }
 
   if (loading) {
     return (
@@ -171,8 +180,6 @@ export default function DashboardPage() {
               </Badge>
             )}
             <Badge variant={connectionStatus === "connected" ? "default" : "secondary"}>
-              {connectionStatus === "connected" && <CheckCircle className="h-3 w-3 mr-1" />}
-              {connectionStatus === "disconnected" && <AlertCircle className="h-3 w-3 mr-1" />}
               {connectionStatus === "connected" ? "Conectado" : "Desconectado"}
             </Badge>
             <Button variant="ghost" size="sm">
@@ -193,10 +200,10 @@ export default function DashboardPage() {
               <span className={`text-sm ${isTrialExpired ? "text-red-800" : "text-yellow-800"}`}>
                 {isTrialExpired
                   ? "Seu trial expirou. Faça upgrade para continuar usando a API."
-                  : `Você tem ${trialDaysLeft} dias restantes no seu trial gratuito.`}
+                  : `Você tem ${trialDaysLeft} dias restantes no seu plano ${getPlanName(user.selectedPlan)}.`}
               </span>
             </div>
-            <Button size="sm" className="bg-green-600 hover:bg-green-700">
+            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleUpgrade}>
               Fazer Upgrade
             </Button>
           </div>
@@ -239,10 +246,10 @@ export default function DashboardPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Plano</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold capitalize">{user?.plan}</div>
+              <div className="text-2xl font-bold">{getPlanName(user?.selectedPlan || "")}</div>
               <p className="text-xs text-muted-foreground">
                 {user?.plan === "free" ? `${trialDaysLeft} dias restantes` : "Ativo"}
               </p>
@@ -250,13 +257,30 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        <Tabs defaultValue="api-keys" className="space-y-6">
+        <Tabs defaultValue="connection" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="api-keys">API Keys</TabsTrigger>
             <TabsTrigger value="connection">Conexão</TabsTrigger>
+            <TabsTrigger value="api-keys">API Keys</TabsTrigger>
             <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="connection" className="space-y-6">
+            {isTrialExpired ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <CreditCard className="h-16 w-16 mx-auto text-red-500 mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Trial Expirado</h3>
+                  <p className="text-gray-600 mb-4">Faça upgrade para continuar usando o WhatsApp</p>
+                  <Button className="bg-green-600 hover:bg-green-700" onClick={handleUpgrade}>
+                    Fazer Upgrade
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <QRCodeDisplay onStatusChange={setConnectionStatus} />
+            )}
+          </TabsContent>
 
           <TabsContent value="api-keys" className="space-y-6">
             <div className="flex justify-between items-center">
@@ -316,58 +340,6 @@ export default function DashboardPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="connection" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Status da Conexão WhatsApp</CardTitle>
-                <CardDescription>Gerencie sua conexão com o WhatsApp Web</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isTrialExpired ? (
-                  <div className="text-center py-8">
-                    <AlertCircle className="h-16 w-16 mx-auto text-red-500 mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Trial Expirado</h3>
-                    <p className="text-gray-600 mb-4">Faça upgrade para continuar usando o WhatsApp</p>
-                    <Button className="bg-green-600 hover:bg-green-700">Fazer Upgrade</Button>
-                  </div>
-                ) : connectionStatus === "disconnected" ? (
-                  <div className="text-center py-8">
-                    <QrCode className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">WhatsApp Desconectado</h3>
-                    <p className="text-gray-600 mb-4">Escaneie o QR Code com seu WhatsApp para conectar</p>
-                    <Button
-                      onClick={() => setConnectionStatus("connecting")}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      Gerar QR Code
-                    </Button>
-                  </div>
-                ) : connectionStatus === "connecting" ? (
-                  <div className="text-center py-8">
-                    <div className="w-48 h-48 mx-auto bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-4">
-                      <QrCode className="h-32 w-32 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">Escaneie o QR Code</h3>
-                    <p className="text-gray-600 mb-4">Abra o WhatsApp no seu celular e escaneie o código acima</p>
-                    <Button variant="outline" onClick={() => setConnectionStatus("connected")}>
-                      Simular Conexão
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <CheckCircle className="h-16 w-16 mx-auto text-green-600 mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">WhatsApp Conectado</h3>
-                    <p className="text-gray-600 mb-4">Sua instância está ativa e pronta para receber requisições</p>
-                    <div className="flex justify-center space-x-3">
-                      <Button variant="outline">Desconectar</Button>
-                      <Button>Testar Conexão</Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="webhooks" className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
@@ -383,9 +355,11 @@ export default function DashboardPage() {
             {isTrialExpired ? (
               <Card>
                 <CardContent className="text-center py-8">
-                  <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+                  <CreditCard className="h-12 w-12 mx-auto text-red-500 mb-4" />
                   <p className="text-gray-500 mb-4">Trial expirado. Faça upgrade para usar webhooks.</p>
-                  <Button className="bg-green-600 hover:bg-green-700">Fazer Upgrade</Button>
+                  <Button className="bg-green-600 hover:bg-green-700" onClick={handleUpgrade}>
+                    Fazer Upgrade
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -422,9 +396,11 @@ export default function DashboardPage() {
               <CardContent>
                 {isTrialExpired ? (
                   <div className="text-center py-8">
-                    <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+                    <CreditCard className="h-12 w-12 mx-auto text-red-500 mb-4" />
                     <p className="text-gray-500 mb-4">Trial expirado. Faça upgrade para ver os logs.</p>
-                    <Button className="bg-green-600 hover:bg-green-700">Fazer Upgrade</Button>
+                    <Button className="bg-green-600 hover:bg-green-700" onClick={handleUpgrade}>
+                      Fazer Upgrade
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-3">
