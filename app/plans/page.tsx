@@ -78,15 +78,18 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
 
+  // Modal states
+  const [modalOpen, setModalOpen] = useState(false)
+  const [numero, setNumero] = useState("")
+  const [metodoPagamento, setMetodoPagamento] = useState("mpesa") // padrão
+
   useEffect(() => {
-    // Verificar se usuário está logado
     const token = localStorage.getItem("token")
     if (!token) {
       window.location.href = "/login"
       return
     }
 
-    // Decodificar token para pegar dados do usuário
     try {
       const payload = JSON.parse(atob(token.split(".")[1]))
       setUser(payload)
@@ -95,33 +98,49 @@ export default function PlansPage() {
     }
   }, [])
 
-  const handleSelectPlan = async (planId: string) => {
+  const handleSelectPlan = (planId: string) => {
     if (planId === "free") {
       // Plano grátis - ir direto para dashboard
-      try {
-        const token = localStorage.getItem("token")
-        const response = await fetch("/api/user/select-plan", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ planId: "free" }),
-        })
-
-        if (response.ok) {
-          window.location.href = "/dashboard"
-        } else {
-          alert("Erro ao selecionar plano")
-        }
-      } catch (error) {
-        alert("Erro ao selecionar plano")
-      }
+      selecionarPlanoFree()
       return
     }
 
-    // Planos pagos - ir para pagamento
+    // Abrir modal para planos pagos
     setSelectedPlan(planId)
+    setModalOpen(true)
+  }
+
+  const selecionarPlanoFree = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      const response = await fetch("/api/user/select-plan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ planId: "free" }),
+      })
+
+      if (response.ok) {
+        window.location.href = "/dashboard"
+      } else {
+        alert("Erro ao selecionar plano")
+      }
+    } catch {
+      alert("Erro ao selecionar plano")
+    }
+  }
+
+  const handlePagamento = async () => {
+    if (!numero || numero.length < 9) {
+      alert("Por favor, insira um número válido")
+      return
+    }
+    if (!metodoPagamento) {
+      alert("Selecione um método de pagamento")
+      return
+    }
     setLoading(true)
 
     try {
@@ -133,19 +152,22 @@ export default function PlansPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          planId,
-          numero: "258840000000", // Será preenchido no modal de pagamento
+          numero,
           nome: user?.name || "Usuário",
           email: user?.email || "",
-          metodoPagamento: "mpesa", // Padrão
+          metodoPagamento,
+          planId: selectedPlan,
         }),
       })
 
       const data = await response.json()
 
       if (data.success && data.checkoutUrl) {
-        // Abrir URL de pagamento
         window.open(data.checkoutUrl, "_blank")
+        setModalOpen(false)
+        setSelectedPlan(null)
+        setNumero("")
+        setMetodoPagamento("mpesa")
       } else {
         alert("Erro ao criar pagamento")
       }
@@ -153,7 +175,6 @@ export default function PlansPage() {
       alert("Erro ao processar pagamento")
     } finally {
       setLoading(false)
-      setSelectedPlan(null)
     }
   }
 
@@ -168,6 +189,7 @@ export default function PlansPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="container mx-auto px-4 py-12">
+        {/* Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Zap className="h-8 w-8 text-green-600" />
@@ -179,6 +201,7 @@ export default function PlansPage() {
           </p>
         </div>
 
+        {/* Plans */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {plans.map((plan) => {
             const Icon = plan.icon
@@ -235,15 +258,15 @@ export default function PlansPage() {
                       plan.popular
                         ? "bg-green-600 hover:bg-green-700"
                         : plan.id === "free"
-                          ? "bg-gray-600 hover:bg-gray-700"
-                          : ""
+                        ? "bg-gray-600 hover:bg-gray-700"
+                        : ""
                     }`}
                   >
                     {loading && selectedPlan === plan.id
                       ? "Processando..."
                       : plan.id === "free"
-                        ? "Começar Grátis"
-                        : "Selecionar Plano"}
+                      ? "Começar Grátis"
+                      : "Selecionar Plano"}
                   </Button>
                 </CardContent>
               </Card>
@@ -251,10 +274,42 @@ export default function PlansPage() {
           })}
         </div>
 
-        <div className="text-center mt-12">
-          <p className="text-gray-600 mb-4">Precisa de mais recursos? Entre em contato conosco!</p>
-          <Button variant="outline">Falar com Vendas</Button>
-        </div>
+        {/* Modal */}
+        {modalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-semibold mb-4">Detalhes do Pagamento</h2>
+
+              <label className="block mb-2 font-medium">Número de Telefone</label>
+              <input
+                type="tel"
+                className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+                placeholder="Ex: 258840000000"
+                value={numero}
+                onChange={(e) => setNumero(e.target.value)}
+              />
+
+              <label className="block mb-2 font-medium">Método de Pagamento</label>
+              <select
+                className="w-full border border-gray-300 rounded px-3 py-2 mb-6"
+                value={metodoPagamento}
+                onChange={(e) => setMetodoPagamento(e.target.value)}
+              >
+                <option value="mpesa">Mpesa</option>
+                <option value="emola">Emola</option>
+              </select>
+
+              <div className="flex justify-between items-center">
+                <Button variant="outline" onClick={() => setModalOpen(false)} disabled={loading}>
+                  Cancelar
+                </Button>
+                <Button onClick={handlePagamento} disabled={loading}>
+                  {loading ? "Processando..." : "Confirmar Pagamento"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
