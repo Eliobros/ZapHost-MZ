@@ -1,24 +1,29 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Zap, Building, User } from "lucide-react"
-import Link from "next/link"
+import { Building, UserIcon } from "lucide-react"
 
 export default function RegisterPage() {
-  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [name, setName] = useState("")
   const [projectType, setProjectType] = useState<"personal" | "business">("personal")
+  const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
     setLoading(true)
 
     try {
@@ -27,80 +32,64 @@ export default function RegisterPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          projectType,
-        }),
+        body: JSON.stringify({ email, password, name, projectType }),
       })
 
       const data = await response.json()
 
-      if (data.success) {
+      if (response.ok) {
         localStorage.setItem("token", data.token)
-        // Redirecionar para seleção de planos
-        window.location.href = "/plans"
+        router.push("/plans") // Redirecionar para a página de seleção de planos
       } else {
-        alert(data.error || "Erro ao criar conta")
+        setError(data.error || "Erro no registro")
       }
-    } catch (error) {
-      alert("Erro ao criar conta")
+    } catch (err) {
+      setError("Erro de conexão. Tente novamente.")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <Zap className="h-8 w-8 text-green-600" />
-            <span className="text-2xl font-bold">ZapHost</span>
-          </div>
-          <CardTitle>Criar conta</CardTitle>
-          <CardDescription>Comece sua jornada com nossa API do WhatsApp</CardDescription>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold">Criar Conta</CardTitle>
+          <CardDescription>Preencha os dados abaixo para criar sua conta ZapHost</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleRegister} className="space-y-4">
-            {/* Tipo de Projeto */}
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <Label className="text-base font-medium">Tipo de Projeto</Label>
+              <Label htmlFor="projectType">Tipo de Projeto</Label>
               <RadioGroup
-                value={projectType}
-                onValueChange={(value) => setProjectType(value as "personal" | "business")}
-                className="mt-2"
+                defaultValue="personal"
+                onValueChange={(value: "personal" | "business") => setProjectType(value)}
+                className="mt-2 flex space-x-4"
               >
-                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
+                <div className="flex items-center space-x-2">
                   <RadioGroupItem value="personal" id="personal" />
-                  <User className="h-4 w-4 text-gray-600" />
-                  <Label htmlFor="personal" className="flex-1 cursor-pointer">
-                    <div className="font-medium">Projeto Pessoal</div>
-                    <div className="text-sm text-gray-500">Para uso individual</div>
+                  <Label htmlFor="personal" className="flex items-center gap-1">
+                    <UserIcon className="h-4 w-4" /> Pessoal
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
+                <div className="flex items-center space-x-2">
                   <RadioGroupItem value="business" id="business" />
-                  <Building className="h-4 w-4 text-gray-600" />
-                  <Label htmlFor="business" className="flex-1 cursor-pointer">
-                    <div className="font-medium">Projeto Empresarial</div>
-                    <div className="text-sm text-gray-500">Para empresas e organizações</div>
+                  <Label htmlFor="business" className="flex items-center gap-1">
+                    <Building className="h-4 w-4" /> Empresarial
                   </Label>
                 </div>
               </RadioGroup>
             </div>
 
-            {/* Nome/Empresa */}
             <div>
-              <Label htmlFor="name">{projectType === "business" ? "Nome da Empresa" : "Nome Completo"}</Label>
+              <Label htmlFor="name">{projectType === "personal" ? "Nome Completo" : "Nome da Empresa"}</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder={projectType === "business" ? "Nome da sua empresa" : "Seu nome completo"}
+                placeholder={projectType === "personal" ? "Seu nome" : "Nome da sua empresa"}
+                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                required
               />
             </div>
 
@@ -109,10 +98,10 @@ export default function RegisterPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="seu@email.com"
+                placeholder="m@example.com"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
               />
             </div>
 
@@ -121,34 +110,22 @@ export default function RegisterPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="Mínimo 6 caracteres"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
               />
             </div>
 
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Criando conta..." : "Criar conta"}
+              {loading ? "Registrando..." : "Registrar"}
             </Button>
           </form>
-
           <div className="mt-4 text-center text-sm">
-            <span className="text-gray-600">Já tem uma conta? </span>
-            <Link href="/login" className="text-green-600 hover:underline">
-              Fazer login
-            </Link>
-          </div>
-
-          <div className="mt-4 text-xs text-gray-500 text-center">
-            Ao criar uma conta, você concorda com nossos{" "}
-            <Link href="/terms" className="underline">
-              Termos de Uso
-            </Link>{" "}
-            e{" "}
-            <Link href="/privacy" className="underline">
-              Política de Privacidade
+            Já tem uma conta?{" "}
+            <Link href="/login" className="underline">
+              Entrar
             </Link>
           </div>
         </CardContent>

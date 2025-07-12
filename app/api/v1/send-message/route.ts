@@ -1,22 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { validateApiKey } from "@/lib/auth"
+import { validateProjectCredentials } from "@/lib/auth"
 import { WhatsAppManager } from "@/lib/whatsapp"
 import { getDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
 export async function POST(request: NextRequest) {
   try {
-    // Validar API Key
+    // Validar credenciais do projeto
     const authorization = request.headers.get("authorization")
     const apiKey = authorization?.replace("Bearer ", "")
+    const secretToken = request.headers.get("x-secret-token")
 
-    if (!apiKey) {
-      return NextResponse.json({ error: "API Key não fornecida" }, { status: 401 })
+    if (!apiKey || !secretToken) {
+      return NextResponse.json({ error: "API Key e Secret Token são obrigatórios" }, { status: 401 })
     }
 
-    const keyValidation = await validateApiKey(apiKey)
-    if (!keyValidation) {
-      return NextResponse.json({ error: "API Key inválida ou expirada" }, { status: 401 })
+    const projectValidation = await validateProjectCredentials(apiKey, secretToken)
+    if (!projectValidation) {
+      return NextResponse.json({ error: "Credenciais inválidas ou projeto expirado" }, { status: 401 })
     }
 
     const { to, message } = await request.json()
@@ -32,14 +33,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Enviar mensagem via WhatsApp
-    const result = await WhatsAppManager.sendMessage(keyValidation.userId, to, message)
+    const result = await WhatsAppManager.sendMessage(projectValidation.userId, to, message)
 
     if (result.success) {
       // Log da API call
       const db = await getDatabase()
       await db.collection("api_logs").insertOne({
-        userId: new ObjectId(keyValidation.userId),
-        apiKeyId: new ObjectId(keyValidation.keyId),
+        userId: new ObjectId(projectValidation.userId),
+        projectId: new ObjectId(projectValidation.projectId),
         endpoint: "/api/v1/send-message",
         method: "POST",
         params: { to, message: message.substring(0, 100) + "..." },

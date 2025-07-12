@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ApiKeyModal } from "@/components/api-key-modal"
+import { ProjectModal } from "@/components/project-modal" // Renomeado de ApiKeyModal
 import { QRCodeDisplay } from "@/components/qr-code-display"
 import { Smartphone, Activity, MessageSquare, Users, Settings, Plus, Trash2, CreditCard } from "lucide-react"
 
@@ -19,10 +19,10 @@ interface User {
   projectType: "personal" | "business"
 }
 
-interface ApiKey {
+interface Project {
   id: string
   name: string
-  keyPreview: string
+  apiKey: string
   createdAt: string
   lastUsed?: string
 }
@@ -32,13 +32,13 @@ export default function DashboardPage() {
     "disconnected",
   )
   const [user, setUser] = useState<User | null>(null)
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([]) // Renomeado de apiKeys
+  const [showProjectModal, setShowProjectModal] = useState(false) // Renomeado de showApiKeyModal
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadUserData()
-    loadApiKeys()
+    loadProjects() // Renomeado
   }, [])
 
   const loadUserData = async () => {
@@ -70,10 +70,12 @@ export default function DashboardPage() {
     }
   }
 
-  const loadApiKeys = async () => {
+  const loadProjects = async () => {
+    // Renomeado
     try {
       const token = localStorage.getItem("token")
-      const response = await fetch("/api/apikeys/list", {
+      const response = await fetch("/api/projects/list", {
+        // Nova rota
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -81,17 +83,19 @@ export default function DashboardPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setApiKeys(data.apiKeys || [])
+        setProjects(data.projects || []) // Renomeado
       }
     } catch (error) {
-      console.error("Erro ao carregar API keys:", error)
+      console.error("Erro ao carregar projetos:", error)
     }
   }
 
-  const handleCreateApiKey = async (name: string) => {
+  const handleCreateProject = async (name: string) => {
+    // Renomeado
     try {
       const token = localStorage.getItem("token")
-      const response = await fetch("/api/apikeys/create", {
+      const response = await fetch("/api/projects/create", {
+        // Nova rota
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -103,37 +107,39 @@ export default function DashboardPage() {
       const data = await response.json()
 
       if (data.success) {
-        await loadApiKeys() // Recarregar lista
-        return { success: true, apiKey: data.apiKey }
+        await loadProjects() // Recarregar lista
+        return { success: true, project: data.project } // Retorna o projeto completo com secretToken
       } else {
         return { success: false, error: data.error }
       }
     } catch (error) {
-      return { success: false, error: "Erro ao criar API key" }
+      return { success: false, error: "Erro ao criar projeto" }
     }
   }
 
-  const handleDeleteApiKey = async (keyId: string) => {
-    if (!confirm("Tem certeza que deseja deletar esta API key?")) return
+  const handleDeleteProject = async (projectId: string) => {
+    // Renomeado
+    if (!confirm("Tem certeza que deseja deletar este projeto?")) return
 
     try {
       const token = localStorage.getItem("token")
-      const response = await fetch("/api/apikeys/delete", {
+      const response = await fetch("/api/projects/delete", {
+        // Nova rota
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ keyId }),
+        body: JSON.stringify({ projectId }),
       })
 
       if (response.ok) {
-        await loadApiKeys()
+        await loadProjects()
       } else {
-        alert("Erro ao deletar API key")
+        alert("Erro ao deletar projeto")
       }
     } catch (error) {
-      alert("Erro ao deletar API key")
+      alert("Erro ao deletar projeto")
     }
   }
 
@@ -235,11 +241,11 @@ export default function DashboardPage() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">API Keys Ativas</CardTitle>
+              <CardTitle className="text-sm font-medium">Projetos Ativos</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{apiKeys.length}</div>
+              <div className="text-2xl font-bold">{projects.length}</div>
               <p className="text-xs text-muted-foreground">Máximo 5</p>
             </CardContent>
           </Card>
@@ -260,7 +266,7 @@ export default function DashboardPage() {
         <Tabs defaultValue="connection" className="space-y-6">
           <TabsList>
             <TabsTrigger value="connection">Conexão</TabsTrigger>
-            <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+            <TabsTrigger value="projects">Projetos</TabsTrigger> {/* Renomeado */}
             <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
           </TabsList>
@@ -282,57 +288,64 @@ export default function DashboardPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="api-keys" className="space-y-6">
+          <TabsContent value="projects" className="space-y-6">
+            {/* Renomeado */}
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-bold">API Keys</h2>
-                <p className="text-gray-600">Gerencie suas chaves de API para autenticação</p>
+                <h2 className="text-2xl font-bold">Projetos</h2> {/* Renomeado */}
+                <p className="text-gray-600">Gerencie seus projetos e credenciais de API</p>
               </div>
-              <Button onClick={() => setShowApiKeyModal(true)} disabled={isTrialExpired || apiKeys.length >= 5}>
+              <Button onClick={() => setShowProjectModal(true)} disabled={isTrialExpired || projects.length >= 5}>
                 <Plus className="h-4 w-4 mr-2" />
-                Nova API Key
+                Novo Projeto
               </Button>
             </div>
 
             <div className="space-y-4">
-              {apiKeys.map((key) => (
-                <Card key={key.id}>
+              {projects.map((project) => (
+                <Card key={project.id}>
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="text-lg">{key.name}</CardTitle>
+                        <CardTitle className="text-lg">{project.name}</CardTitle>
                         <CardDescription>
-                          Criada em: {new Date(key.createdAt).toLocaleDateString("pt-BR")}
+                          Criado em: {new Date(project.createdAt).toLocaleDateString("pt-BR")}
                         </CardDescription>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge>Ativa</Badge>
-                        <Button size="sm" variant="outline" onClick={() => handleDeleteApiKey(key.id)}>
+                        <Badge>Ativo</Badge>
+                        <Button size="sm" variant="outline" onClick={() => handleDeleteProject(project.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center space-x-2">
-                      <code className="bg-gray-100 px-3 py-1 rounded text-sm flex-1">{key.keyPreview}</code>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-sm font-medium">API Key</label>
+                        <code className="bg-gray-100 px-3 py-1 rounded text-sm flex-1 block mt-1">
+                          {project.apiKey}
+                        </code>
+                      </div>
+                      {/* Secret Token não é exibido aqui por segurança, apenas no modal de criação */}
                     </div>
-                    {key.lastUsed && (
+                    {project.lastUsed && (
                       <div className="mt-2 text-sm text-gray-600">
-                        <p>Último uso: {new Date(key.lastUsed).toLocaleString("pt-BR")}</p>
+                        <p>Último uso: {new Date(project.lastUsed).toLocaleString("pt-BR")}</p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
               ))}
 
-              {apiKeys.length === 0 && (
+              {projects.length === 0 && (
                 <Card>
                   <CardContent className="text-center py-8">
-                    <p className="text-gray-500 mb-4">Nenhuma API key criada ainda</p>
-                    <Button onClick={() => setShowApiKeyModal(true)} disabled={isTrialExpired}>
+                    <p className="text-gray-500 mb-4">Nenhum projeto criado ainda</p>
+                    <Button onClick={() => setShowProjectModal(true)} disabled={isTrialExpired}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Criar Primeira API Key
+                      Criar Primeiro Projeto
                     </Button>
                   </CardContent>
                 </Card>
@@ -428,10 +441,10 @@ export default function DashboardPage() {
         </Tabs>
       </div>
 
-      <ApiKeyModal
-        isOpen={showApiKeyModal}
-        onClose={() => setShowApiKeyModal(false)}
-        onCreateKey={handleCreateApiKey}
+      <ProjectModal
+        isOpen={showProjectModal}
+        onClose={() => setShowProjectModal(false)}
+        onCreateProject={handleCreateProject}
       />
     </div>
   )

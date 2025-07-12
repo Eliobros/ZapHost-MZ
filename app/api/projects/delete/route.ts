@@ -17,17 +17,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Token inválido" }, { status: 401 })
     }
 
-    const { keyId } = await request.json()
+    const { projectId } = await request.json()
 
-    if (!keyId) {
-      return NextResponse.json({ error: "ID da API key é obrigatório" }, { status: 400 })
+    if (!projectId) {
+      return NextResponse.json({ error: "ID do projeto é obrigatório" }, { status: 400 })
     }
 
     const db = await getDatabase()
 
-    const result = await db.collection("apikeys").updateOne(
+    const result = await db.collection("projects").updateOne(
       {
-        _id: new ObjectId(keyId),
+        _id: new ObjectId(projectId),
         userId: new ObjectId(decoded.userId),
       },
       {
@@ -36,12 +36,12 @@ export async function DELETE(request: NextRequest) {
     )
 
     if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "API key não encontrada ou não pertence ao usuário" }, { status: 404 })
+      return NextResponse.json({ error: "Projeto não encontrado ou não pertence ao usuário" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, message: "API key deletada com sucesso" })
+    return NextResponse.json({ success: true, message: "Projeto deletado com sucesso" })
   } catch (error) {
-    console.error("Erro ao deletar API key:", error)
+    console.error("Erro ao deletar projeto:", error)
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }

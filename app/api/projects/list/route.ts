@@ -3,7 +3,7 @@ import { verifyJWT } from "@/lib/auth"
 import { getDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
-export async function DELETE(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const authorization = request.headers.get("authorization")
     const token = authorization?.replace("Bearer ", "")
@@ -17,31 +17,28 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Token inválido" }, { status: 401 })
     }
 
-    const { keyId } = await request.json()
-
-    if (!keyId) {
-      return NextResponse.json({ error: "ID da API key é obrigatório" }, { status: 400 })
-    }
-
     const db = await getDatabase()
 
-    const result = await db.collection("apikeys").updateOne(
-      {
-        _id: new ObjectId(keyId),
+    const projects = await db
+      .collection("projects")
+      .find({
         userId: new ObjectId(decoded.userId),
-      },
-      {
-        $set: { isActive: false }, // Soft delete
-      },
-    )
+        isActive: true,
+      })
+      .project({ secretToken: 0 }) // Não retornar o secretToken
+      .toArray()
 
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "API key não encontrada ou não pertence ao usuário" }, { status: 404 })
-    }
+    const formattedProjects = projects.map((project) => ({
+      id: project._id.toString(),
+      name: project.name,
+      apiKey: project.apiKey,
+      createdAt: project.createdAt.toISOString(),
+      lastUsed: project.lastUsed ? project.lastUsed.toISOString() : undefined,
+    }))
 
-    return NextResponse.json({ success: true, message: "API key deletada com sucesso" })
+    return NextResponse.json({ success: true, projects: formattedProjects })
   } catch (error) {
-    console.error("Erro ao deletar API key:", error)
+    console.error("Erro ao listar projetos:", error)
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
   }
 }
