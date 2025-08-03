@@ -89,11 +89,43 @@ export default function PlansPage() {
     // Decodificar token para pegar dados do usuário
     try {
       const payload = JSON.parse(atob(token.split(".")[1]))
-      setUser(payload)
+      
+      // Buscar dados completos do usuário
+      fetchUserData(token, payload.userId)
     } catch (error) {
       window.location.href = "/login"
     }
   }, [])
+
+  const fetchUserData = async (token: string, userId: string) => {
+    try {
+      const response = await fetch("/api/user/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        setUser(userData.user)
+      } else {
+        // Fallback com dados básicos
+        setUser({
+          userId,
+          name: "Usuário",
+          email: "usuario@zaphost.com",
+        })
+      }
+    } catch (error) {
+      console.error("Erro ao buscar dados do usuário:", error)
+      // Fallback com dados básicos
+      setUser({
+        userId,
+        name: "Usuário",
+        email: "usuario@zaphost.com",
+      })
+    }
+  }
 
   const handleSelectPlan = async (planId: string) => {
     if (planId === "free") {

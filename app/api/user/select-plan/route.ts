@@ -23,8 +23,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plano não especificado" }, { status: 400 })
     }
 
-    const db = await getDatabase()
-
     // Definir duração baseada no plano
     const trialEndsAt = new Date()
     let plan = "free"
@@ -49,6 +47,14 @@ export async function POST(request: NextRequest) {
       default:
         return NextResponse.json({ error: "Plano inválido" }, { status: 400 })
     }
+
+    if (process.env.MONGODB_URI === "disabled") {
+      // Retornar sucesso quando MongoDB está desabilitado
+      console.log(`[SelectPlan] Plano ${planId} selecionado para usuário ${decoded.userId} (MongoDB desabilitado)`)
+      return NextResponse.json({ success: true })
+    }
+
+    const db = await getDatabase()
 
     // Atualizar usuário
     await db.collection("users").updateOne(
