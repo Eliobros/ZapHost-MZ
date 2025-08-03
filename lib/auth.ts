@@ -79,6 +79,34 @@ export function generateSecretToken(): string {
   return prefix + randomString
 }
 
+export async function validateApiKey(apiKey: string): Promise<{ userId: string; projectId: string } | null> {
+  try {
+    const db = await getDatabase()
+    const project = await db.collection("projects").findOne({
+      apiKey,
+      isActive: true,
+    })
+
+    if (!project) return null
+
+    // Verificar se o usuário ainda tem acesso (trial ou pago)
+    const user = await db.collection("users").findOne({ _id: project.userId })
+    if (!user || !user.isActive) return null
+
+    if (user.plan === "free" && new Date() > new Date(user.trialEndsAt)) {
+      return null
+    }
+
+    // Atualizar último uso do projeto
+    await db.collection("projects").updateOne({ _id: project._id }, { $set: { lastUsed: new Date() } })
+
+    return { userId: project.userId.toString(), projectId: project._id.toString() }
+  } catch (error) {
+    console.error("Erro ao validar API key:", error)
+    return null
+  }
+}
+
 export async function validateProjectCredentials(
   apiKey: string,
   secretToken: string,
