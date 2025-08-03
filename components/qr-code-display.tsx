@@ -16,9 +16,12 @@ export function QRCodeDisplay({ onStatusChange }: QRCodeDisplayProps) {
   const [loading, setLoading] = useState(false)
 
   const generateQRCode = async () => {
+    console.log("[QRCode] Iniciando geração do QR Code...")
     setLoading(true)
     try {
       const token = localStorage.getItem("token")
+      console.log("[QRCode] Token encontrado:", !!token)
+      
       const response = await fetch("/api/whatsapp/connect", {
         method: "POST",
         headers: {
@@ -26,14 +29,18 @@ export function QRCodeDisplay({ onStatusChange }: QRCodeDisplayProps) {
         },
       })
 
+      console.log("[QRCode] Response status:", response.status)
       const data = await response.json()
+      console.log("[QRCode] Response data:", data)
 
       if (data.success && data.qrCode) {
+        console.log("[QRCode] QR Code recebido, gerando imagem...")
         // Gerar imagem do QR Code
         const qrCodeDataUrl = await QRCodeLib.toDataURL(data.qrCode, {
           width: 256,
           margin: 2,
         })
+        console.log("[QRCode] Imagem do QR Code gerada com sucesso")
         setQrCodeUrl(qrCodeDataUrl)
         setStatus("connecting")
         onStatusChange("connecting")
@@ -41,15 +48,18 @@ export function QRCodeDisplay({ onStatusChange }: QRCodeDisplayProps) {
         // Iniciar polling para verificar status
         startStatusPolling()
       } else if (data.success && !data.qrCode) {
+        console.log("[QRCode] Já conectado")
         // Já conectado
         setStatus("connected")
         onStatusChange("connected")
       } else {
+        console.error("[QRCode] Erro na resposta:", data.error)
         setStatus("error")
         onStatusChange("error")
         alert(data.error || "Erro ao gerar QR Code")
       }
     } catch (error) {
+      console.error("[QRCode] Erro na requisição:", error)
       setStatus("error")
       onStatusChange("error")
       alert("Erro ao conectar com WhatsApp")

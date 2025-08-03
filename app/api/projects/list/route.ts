@@ -17,6 +17,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Token inválido" }, { status: 401 })
     }
 
+    if (process.env.MONGODB_URI === "disabled") {
+      // Retornar projetos mockados quando MongoDB está desabilitado
+      const mockProjects = [
+        {
+          id: "mock-project-1",
+          name: "Projeto Teste",
+          apiKey: "zap_test123456789abcdef",
+          createdAt: new Date().toISOString(),
+          lastUsed: undefined,
+        },
+      ]
+      return NextResponse.json({ success: true, projects: mockProjects })
+    }
+
     const db = await getDatabase()
 
     const projects = await db
@@ -30,9 +44,9 @@ export async function GET(request: NextRequest) {
 
     const formattedProjects = projects.map((project) => ({
       id: project._id.toString(),
-      name: project.name,
-      apiKey: project.apiKey,
-      createdAt: project.createdAt.toISOString(),
+      name: project.name || "Projeto sem nome",
+      apiKey: project.apiKey || "API Key não encontrada",
+      createdAt: project.createdAt ? project.createdAt.toISOString() : new Date().toISOString(),
       lastUsed: project.lastUsed ? project.lastUsed.toISOString() : undefined,
     }))
 

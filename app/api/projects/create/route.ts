@@ -23,6 +23,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Nome do projeto é obrigatório" }, { status: 400 })
     }
 
+    // Gerar nova API key e Secret Token
+    const apiKey = generateProjectApiKey()
+    const rawSecretToken = generateSecretToken()
+
+    if (process.env.MONGODB_URI === "disabled") {
+      // Retornar projeto mockado quando MongoDB está desabilitado
+      return NextResponse.json({
+        success: true,
+        project: {
+          id: "mock-project-" + Date.now(),
+          name,
+          apiKey,
+          secretToken: rawSecretToken,
+          createdAt: new Date(),
+        },
+      })
+    }
+
     const db = await getDatabase()
 
     // Verificar se usuário tem acesso
@@ -49,9 +67,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Limite máximo de 5 projetos atingido" }, { status: 400 })
     }
 
-    // Gerar nova API key e Secret Token
-    const apiKey = generateProjectApiKey()
-    const rawSecretToken = generateSecretToken()
     const hashedSecretToken = await hashSecretToken(rawSecretToken)
 
     const newProject = {
